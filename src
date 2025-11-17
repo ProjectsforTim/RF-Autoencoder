@@ -1,10 +1,4 @@
 """
-RF Autoencoder Training Pipeline
---------------------------------
-Loads the RML2016.10a dataset, extracts spectrograms from IQ samples,
-normalises them, and trains a simple dense autoencoder to learn
-the baseline characteristics of normal RF signals.
-
 This script is repository-ready and contains no Colab-specific code.
 """
 
@@ -35,10 +29,6 @@ def load_radioml_dataset(path: str):
 # -----------------------------------------------------------
 
 def make_spectrogram(iq_pair, nfft=32, noverlap=16):
-    """
-    Converts an (I, Q) IQ pair into a 2D log-magnitude spectrogram.
-    Returns: float32 array of shape (freq_bins, time_bins)
-    """
     I, Q = iq_pair
     _, _, Sxx = signal.spectrogram(
         I + 1j * Q,
@@ -55,9 +45,6 @@ def make_spectrogram(iq_pair, nfft=32, noverlap=16):
 # -----------------------------------------------------------
 
 def build_spectrogram_dataset(data, mods=None, snrs=None, samples_per_class=200):
-    """
-    Extracts spectrograms only from selected modulation/SNR combinations.
-    """
     specs = []
     labels = []
 
@@ -80,10 +67,6 @@ def build_spectrogram_dataset(data, mods=None, snrs=None, samples_per_class=200)
 # -----------------------------------------------------------
 
 def prepare_training_data(specs):
-    """
-    Normalises spectrograms to [0,1] and flattens them for training.
-    Returns: X (flattened array)
-    """
     specs_norm = (specs - specs.min()) / (specs.max() - specs.min())
     X = specs_norm.reshape(specs_norm.shape[0], -1)
     return X
@@ -94,9 +77,6 @@ def prepare_training_data(specs):
 # -----------------------------------------------------------
 
 def build_autoencoder(input_dim, latent_dim=64):
-    """
-    Builds a simple dense autoencoder for anomaly detection.
-    """
     input_layer = keras.Input(shape=(input_dim,))
     x = layers.Dense(128, activation="relu")(input_layer)
     encoded = layers.Dense(latent_dim, activation="relu")(x)
@@ -119,13 +99,6 @@ def train_autoencoder(
     epochs=25,
     batch_size=32
 ):
-    """
-    End-to-end training routine:
-    - Loads dataset
-    - Builds spectrogram dataset
-    - Prepares X_train / X_val
-    - Trains autoencoder
-    """
 
     print("[INFO] Loading dataset...")
     data = load_radioml_dataset(dataset_path)
