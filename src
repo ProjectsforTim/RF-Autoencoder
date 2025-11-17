@@ -1,1 +1,168 @@
+"""
+RF Autoencoder Training Pipeline
+--------------------------------
+Loads the RML2016.10a dataset, extracts spectrograms from IQ samples,
+normalises them, and trains a simple dense autoencoder to learn
+the baseline characteristics of normal RF signals.
 
+This script is repository-ready and contains no Colab-specific code.
+"""
+
+import numpy as np
+import pickle
+from scipy import signal
+from sklearn.model_selection import train_test_split
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+
+
+# -----------------------------------------------------------
+# 1. Load the Dataset
+# -----------------------------------------------------------
+
+def load_radioml_dataset(path: str):
+    """
+    Loads the RML2016.10a dataset (dict format).
+    """
+    with open(path, "rb") as f:
+        data = pickle.load(f, encoding="latin1")
+    return data
+
+
+# -----------------------------------------------------------
+# 2. Spectrogram Generation
+# -----------------------------------------------------------
+
+def make_spectrogram(iq_pair, nfft=32, noverlap=16):
+    """
+    Converts an (I, Q) IQ pair into a 2D log-magnitude spectrogram.
+    Returns: float32 array of shape (freq_bins, time_bins)
+    """
+    I, Q = iq_pair
+    _, _, Sxx = signal.spectrogram(
+        I + 1j * Q,
+        nperseg=nfft,
+        noverlap=noverlap,
+        return_onesided=False
+    )
+    Sxx = np.log(np.abs(Sxx) + 1e-9)
+    return Sxx.astype(np.float32)
+
+
+# -----------------------------------------------------------
+# 3. Build the Normal-Signal Spectrogram Dataset
+# -----------------------------------------------------------
+
+def build_spectrogram_dataset(data, mods=None, snrs=None, samples_per_class=200):
+    """
+    Extracts spectrograms only from selected modulation/SNR combinations.
+    """
+    specs = []
+    labels = []
+
+    for (mod, snr), array in data.items():
+        if mods and mod not in mods:
+            continue
+        if snrs and snr not in snrs:
+            continue
+
+        for sample in array[:samples_per_class]:
+            S = make_spectrogram(sample)
+            specs.append(S)
+            labels.append(f"{mod}_{snr}")
+
+    return np.array(specs), np.array(labels)
+
+
+# -----------------------------------------------------------
+# 4. Prepare Training Data
+# -----------------------------------------------------------
+
+def prepare_training_data(specs):
+    """
+    Normalises spectrograms to [0,1] and flattens them for training.
+    Returns: X (flattened array)
+    """
+    specs_norm = (specs - specs.min()) / (specs.max() - specs.min())
+    X = specs_norm.reshape(specs_norm.shape[0], -1)
+    return X
+
+
+# -----------------------------------------------------------
+# 5. Autoencoder Model
+# -----------------------------------------------------------
+
+def build_autoencoder(input_dim, latent_dim=64):
+    """
+    Builds a simple dense autoencoder for anomaly detection.
+    """
+    input_layer = keras.Input(shape=(input_dim,))
+    x = layers.Dense(128, activation="relu")(input_layer)
+    encoded = layers.Dense(latent_dim, activation="relu")(x)
+    x = layers.Dense(128, activation="relu")(encoded)
+    decoded = layers.Dense(input_dim, activation="sigmoid")(x)
+
+    autoencoder = keras.Model(inputs=input_layer, outputs=decoded)
+    autoencoder.compile(optimizer="adam", loss="mse")
+    return autoencoder
+
+
+# -----------------------------------------------------------
+# 6. Main Training Routine
+# -----------------------------------------------------------
+
+def train_autoencoder(
+    dataset_path="RML2016.10a_dict.dat",
+    mods=("QPSK", "BPSK"),
+    snrs=(0, 2, 4, 6, 8, 10),
+    epochs=25,
+    batch_size=32
+):
+    """
+    End-to-end training routine:
+    - Loads dataset
+    - Builds spectrogram dataset
+    - Prepares X_train / X_val
+    - Trains autoencoder
+    """
+
+    print("[INFO] Loading dataset...")
+    data = load_radioml_dataset(dataset_path)
+
+    print("[INFO] Building spectrogram dataset...")
+    specs, labels = build_spectrogram_dataset(
+        data,
+        mods=mods,
+        snrs=snrs,
+        samples_per_class=200
+    )
+
+    print("[INFO] Preparing training data...")
+    X = prepare_training_data(specs)
+
+    X_train, X_val = train_test_split(X, test_size=0.2, random_state=42)
+    print(f"[INFO] Train: {X_train.shape} | Validation: {X_val.shape}")
+
+    print("[INFO] Building autoencoder...")
+    autoencoder = build_autoencoder(X_train.shape[1])
+
+    print("[INFO] Training model...")
+    history = autoencoder.fit(
+        X_train, X_train,
+        validation_data=(X_val, X_val),
+        epochs=epochs,
+        batch_size=batch_size,
+        verbose=1
+    )
+
+    print("[INFO] Training complete.")
+    return autoencoder, history
+
+
+# -----------------------------------------------------------
+# 7. Script Entry Point
+# -----------------------------------------------------------
+
+if __name__ == "__main__":
+    model, history = train_autoencoder()
