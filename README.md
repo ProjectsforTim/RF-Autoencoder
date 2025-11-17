@@ -1,13 +1,77 @@
-# RF-Autoencoder
-RF Anomaly Detection Using Autoencoders
+RF-Autoencoder
 
-A minimalist implementation for detecting anomalous RF signals using reconstruction error.
+Anomaly Detection in RF Signals Using Autoencoders
 
-Overview
+A compact, reproducible implementation for detecting anomalous RF activity using reconstruction error.
+Built around the RML2016.10a wireless dataset, this project uses an autoencoder to learn what normal modulation patterns look like—then flags signals that deviate from this learned baseline.
 
-This project explores how autoencoders can identify abnormal RF activity by learning the baseline characteristics of “normal” signals. Using the RML2016.10a dataset, the model is trained exclusively on standard modulation types (QPSK, BPSK) and then evaluated on signals outside this baseline.
+🚀 Overview
 
-Autoencoders reconstruct familiar patterns accurately—but struggle with unfamiliar ones.
-This reconstruction error becomes a powerful anomaly signal.
+Modern RF environments (Wi-Fi, telemetry, drone control links, Bluetooth, broadcast, etc.) are noisy and dynamic. Spotting unusual or unknown signals inside this spectrum is increasingly important for:
 
-The goal of this repo is to provide a clean, minimal, reproducible pipeline suitable for both learning and demonstrating the core idea behind RF anomaly detection.
+Counter-UAS systems
+
+Electronic warfare
+
+Spectrum monitoring
+
+Interference analysis
+
+Security and device detection
+
+Autoencoders offer a simple but powerful approach:
+
+If a model learns to accurately reconstruct only “normal” RF signals, it will produce higher error for unseen or abnormal signals.
+This reconstruction error becomes the anomaly score.
+
+📡 How It Works
+1. Data Source
+
+This project uses the open-source RML2016.10a dataset, which contains labeled I/Q radio signals across many modulation types and SNRs.
+
+2. Spectrogram Conversion
+
+Each I/Q sample is transformed into a log-power spectrogram, providing a compact and visually interpretable RF snapshot.
+
+3. Training on “Normal” Signals Only
+
+The autoencoder is trained exclusively on standard modulation types (e.g., QPSK, BPSK) across reasonable SNR ranges.
+
+4. Reconstruction Error for Anomaly Detection
+
+Unfamiliar or abnormal modulations (e.g., AM-DSB, 8PSK, WBFM) produce higher reconstruction error.
+A threshold defines what counts as “anomalous.”
+
+🧠 Model Architecture (Autoencoder)
+
+Dense autoencoder
+
+Latent dimension: 64
+
+Loss: MSE
+
+Optimizer: Adam
+
+The model is intentionally lightweight so the project remains simple, reproducible, and easy to extend.
+
+The script will:
+
+✔ Load dataset
+✔ Build spectrograms
+✔ Normalize + flatten
+✔ Train autoencoder
+✔ Print training metrics
+
+📊 Example Output
+
+Once integrated with your own notebook visualizations, you can generate:
+
+Reconstruction error histograms
+
+Spectrogram comparisons
+
+Confusion matrices for anomaly performance
+
+Reconstruction samples
+
+I'm keeping my visualisation code a secret but it's not hard to make your own 😎
