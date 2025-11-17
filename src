@@ -16,9 +16,6 @@ from tensorflow.keras import layers
 # -----------------------------------------------------------
 
 def load_radioml_dataset(path: str):
-    """
-    Loads the RML2016.10a dataset (dict format).
-    """
     with open(path, "rb") as f:
         data = pickle.load(f, encoding="latin1")
     return data
